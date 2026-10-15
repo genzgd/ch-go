@@ -193,6 +193,9 @@ func (b Block) WriteBlock(w *Writer, version int, input []InputColumn) error {
 	})
 
 	for _, col := range input {
+		if err := w.Err(); err != nil {
+			return err
+		}
 		if r := col.Data.Rows(); r != b.Rows {
 			return errors.Errorf("%q has %d rows, expected %d", col.Name, r, b.Rows)
 		}

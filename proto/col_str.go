@@ -83,6 +83,36 @@ func (c ColStr) EncodeColumn(b *Buffer) {
 
 // WriteColumn writes String rows to *Writer.
 func (c ColStr) WriteColumn(w *Writer) {
+	if w.streaming {
+		for row := 0; row < len(c.Pos) && w.Err() == nil; {
+			position := c.Pos[row]
+			if length := position.End - position.Start; length > streamBufferSize {
+				w.ChainBuffer(func(b *Buffer) { b.PutUVarInt(uint64(length)) })
+				w.ChainWrite(c.Buf[position.Start:position.End])
+				row++
+				continue
+			}
+			w.ChainBuffer(func(b *Buffer) {
+				var prefix [binary.MaxVarintLen64]byte
+				for row < len(c.Pos) {
+					position := c.Pos[row]
+					length := position.End - position.Start
+					if length > streamBufferSize {
+						break
+					}
+					n := binary.PutUvarint(prefix[:], uint64(length))
+					b.Buf = append(b.Buf, prefix[:n]...)
+					b.Buf = append(b.Buf, c.Buf[position.Start:position.End]...)
+					row++
+					if len(b.Buf) >= streamBufferSize {
+						break
+					}
+				}
+			})
+		}
+		return
+	}
+
 	var buf [binary.MaxVarintLen64]byte
 	// Writing values from c.Buf directly might improve performance if [ColStr] contains a few rows of very long strings.
 	// However, most of the time it is quite opposite, so we copy data.
