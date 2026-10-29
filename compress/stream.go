@@ -25,16 +25,11 @@ type StreamWriter struct {
 	err       error
 }
 
-// NewStreamWriter creates a bounded compression stream. With a nil destination,
-// Write and Flush return an error until Reset supplies a destination.
-func NewStreamWriter(dst io.Writer, level Level, method Method) *StreamWriter {
-	return NewStreamWriterSize(dst, level, method, BlockSize)
-}
-
-// NewStreamWriterSize sets the maximum uncompressed bytes per frame. Zero uses
-// BlockSize. Sizes outside [1, MaxFrameSize] cause Write and Flush to return an
-// error, including after Reset. A nil destination behaves as in NewStreamWriter.
-func NewStreamWriterSize(dst io.Writer, level Level, method Method, frameSize int) *StreamWriter {
+// NewStreamWriter creates a bounded compression stream. frameSize sets the maximum
+// uncompressed bytes per frame; zero uses BlockSize. Sizes outside [1, MaxFrameSize]
+// cause Write and Flush to return an error, including after Reset. With a nil
+// destination, Write and Flush return an error until Reset supplies a destination.
+func NewStreamWriter(dst io.Writer, level Level, method Method, frameSize int) *StreamWriter {
 	if frameSize == 0 {
 		frameSize = BlockSize
 	}

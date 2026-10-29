@@ -234,9 +234,9 @@ options := ch.Options{
 
 `CompressionLevel: 0` preserves the default ZSTD preset (level 3). Levels 1-2 map
 to fastest, 3-5 to default, 6-9 to better, and 10-22 to best compression; values
-above 22 are clamped. These are the underlying library's approximate mappings of
+above 22, including wrapped negative values, use the default. These are the underlying library's approximate mappings of
 ZSTD levels, not 22 distinct algorithms. Both settings apply to ordinary
-inserts and encoders created with `NewBlockEncoder`. `compress.NewStreamWriterSize`
+inserts and encoders created with `NewBlockEncoder`. `compress.NewStreamWriter`
 provides the same frame-size control for standalone streams. Frame size does not
 change INSERT or deduplication boundaries.
 
@@ -276,6 +276,24 @@ well as queued blocks. Custom columns should use bounded `ChainBuffer` callbacks
 or `ChainWrite` to avoid whole-column scratch allocations. Prepared blocks can be
 reused with connections having the same negotiated protocol and compression mode;
 failed inserts are not retried automatically.
+
+### Custom Native serialization
+
+A custom input column can implement `proto.CustomSerialization` alongside
+`proto.ColInput`. Its `EncodeSerialization(*proto.Buffer, int) error` method writes
+ClickHouse's serialization-kind metadata, excluding the preceding flag. The block
+encoder sets that flag and calls the method after `Prepare`, before state and
+payload encoding, even for zero-row columns. `EncodeColumn` and `WriteColumn`
+must encode the corresponding representation while `Type` retains the logical
+column type. Nested types must supply their complete serialization metadata tree.
+
+The hook is shared by buffered Native blocks, ordinary TCP inserts, and prepared
+blocks, with or without compression. Revisions below `FeatureCustomSerialization`
+(54454) are rejected. Support for a particular kind also depends on the receiving
+server; callers must validate that separately. Do not raise `Options.ProtocolVersion`
+just to enable a kind: newer revisions can require additional handshake and packet
+fields. The default advertised revision remains unchanged, and decoding custom
+result columns is not implemented.
 
 ### Stream data
 ```go

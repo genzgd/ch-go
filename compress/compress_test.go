@@ -162,7 +162,8 @@ func TestZSTDCompressionLevel(t *testing.T) {
 		{9, zstd.SpeedBetterCompression},
 		{10, zstd.SpeedBestCompression},
 		{22, zstd.SpeedBestCompression},
-		{Level(math.MaxUint32), zstd.SpeedBestCompression},
+		{23, zstd.SpeedDefault},
+		{Level(math.MaxUint32), zstd.SpeedDefault},
 	} {
 		t.Run(fmt.Sprint(tt.level), func(t *testing.T) {
 			reference, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(tt.preset), zstd.WithEncoderConcurrency(1), zstd.WithLowerEncoderMem(true))

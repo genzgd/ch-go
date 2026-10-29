@@ -329,7 +329,8 @@ const (
 //
 // Supported by LZ4HC (default 9, maximum 12) and ZSTD (default 3, maximum 22).
 // ZSTD levels map to encoder presets: 1-2 fastest, 3-5 default, 6-9 better,
-// and 10-22 best compression. Values above the maximum are clamped.
+// and 10-22 best compression. LZ4HC levels above the maximum are clamped; ZSTD
+// levels above the maximum, including wrapped negative values, use the default.
 type CompressionLevel uint32
 
 // Options for Client. Zero value is valid.

@@ -97,11 +97,11 @@ func NewWriter(l Level, m Method) *Writer {
 		lz4hcWriter = &lz4.CompressorHC{Level: lz4.CompressionLevel(1 << (8 + levelLZ4HC))}
 	case ZSTD:
 		levelZSTD := l
-		if levelZSTD == LevelZero {
+		if levelZSTD == LevelZero || levelZSTD > LevelZSTDMax {
 			levelZSTD = LevelZSTDDefault
 		}
 		zstdWriter, err = zstd.NewWriter(nil,
-			zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(int(min(levelZSTD, LevelZSTDMax)))),
+			zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(int(levelZSTD))),
 			zstd.WithEncoderConcurrency(1),
 			zstd.WithLowerEncoderMem(true),
 		)

@@ -53,7 +53,7 @@ type BlockEncoder struct {
 func (c *Client) NewBlockEncoder() *BlockEncoder {
 	return &BlockEncoder{
 		version: c.protocolVersion, compression: c.compression,
-		stream: compress.NewStreamWriterSize(nil, c.compressionLevel, c.compressionMethod, c.compressionFrameSize),
+		stream: compress.NewStreamWriter(nil, c.compressionLevel, c.compressionMethod, c.compressionFrameSize),
 	}
 }
 
@@ -69,9 +69,6 @@ func (e *BlockEncoder) Encode(ctx context.Context, input proto.Input) (*Prepared
 	}
 	if len(input) == 0 || input[0].Data.Rows() <= 0 {
 		return nil, errors.New("prepared input must contain rows and columns")
-	}
-	if err := ctx.Err(); err != nil {
-		return nil, err
 	}
 	var dst bytes.Buffer
 	dst.Grow(e.lastBlockSize + e.lastBlockSize/8)
@@ -98,12 +95,7 @@ func (e *BlockEncoder) write(ctx context.Context, dst io.Writer, input proto.Inp
 	}
 	e.buffer.Reset()
 	writer := proto.NewStreamingWriter(output, &e.buffer)
-	block := proto.Block{Columns: len(input)}
-	if len(input) > 0 {
-		block.Rows = input[0].Data.Rows()
-		block.Info.BucketNum = -1
-	}
-	if err := block.WriteBlock(writer, e.version, input); err != nil {
+	if err := inputBlock(input).WriteBlock(writer, e.version, input); err != nil {
 		return err
 	}
 	if _, err := writer.Flush(); err != nil {
@@ -112,7 +104,17 @@ func (e *BlockEncoder) write(ctx context.Context, dst io.Writer, input proto.Inp
 	if e.compression == proto.CompressionEnabled {
 		return e.stream.Flush()
 	}
-	return ctx.Err()
+	return nil
+}
+
+func inputBlock(input []proto.InputColumn) proto.Block {
+	b := proto.Block{Columns: len(input)}
+	if len(input) > 0 {
+		b.Rows = input[0].Data.Rows()
+		// TODO(ernado): investigate and document
+		b.Info.BucketNum = -1
+	}
+	return b
 }
 
 type blockContextWriter struct {

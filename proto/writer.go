@@ -102,9 +102,6 @@ func (w *Writer) reset() {
 	w.vec = w.vec[:0]
 }
 
-// Err returns the first streaming write error, if any.
-func (w *Writer) Err() error { return w.err }
-
 // Flush flushes all data to writer.
 func (w *Writer) Flush() (n int64, err error) {
 	if w.streaming {
@@ -125,7 +122,7 @@ func writeColumnChunks(w *Writer, rows, width int, encode func(*Buffer, int, int
 	if w.streaming {
 		step = max(1, streamBufferSize/width)
 	}
-	for start := 0; start < rows && w.Err() == nil; start += step {
+	for start := 0; start < rows && w.err == nil; start += step {
 		end := min(start+step, rows)
 		w.ChainBuffer(func(b *Buffer) { encode(b, start, end) })
 	}

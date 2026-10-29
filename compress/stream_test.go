@@ -23,7 +23,7 @@ func TestStreamWriter(t *testing.T) {
 				}
 				for _, chunk := range []int{37, BlockSize, len(data)} {
 					var dst bytes.Buffer
-					stream := NewStreamWriter(&dst, LevelZero, method)
+					stream := NewStreamWriter(&dst, LevelZero, method, 0)
 					for start := 0; start < len(data); start += chunk {
 						n, err := stream.Write(data[start:min(start+chunk, len(data))])
 						require.NoError(t, err)
@@ -63,7 +63,7 @@ func (s *failingStreamSink) Write(p []byte) (int, error) { s.calls++; return len
 func TestStreamWriterErrorsAndReset(t *testing.T) {
 	for _, failure := range []error{nil, errors.New("write failed")} {
 		sink := &failingStreamSink{err: failure}
-		stream := NewStreamWriter(sink, LevelZero, LZ4)
+		stream := NewStreamWriter(sink, LevelZero, LZ4, 0)
 		_, err := stream.Write(make([]byte, BlockSize))
 		if failure == nil {
 			failure = io.ErrShortWrite
@@ -85,7 +85,7 @@ func TestStreamWriterErrorsAndReset(t *testing.T) {
 }
 
 func TestStreamWriterNilDestination(t *testing.T) {
-	stream := NewStreamWriter(nil, LevelZero, LZ4)
+	stream := NewStreamWriter(nil, LevelZero, LZ4, 0)
 	for range 2 {
 		require.ErrorIs(t, stream.Flush(), errNilStreamDestination)
 		for _, size := range []int{0, 1, BlockSize} {
@@ -126,7 +126,7 @@ func TestStreamWriterFailedFrameCount(t *testing.T) {
 			for _, failAt := range []int{1, 2} {
 				t.Run(fmt.Sprintf("buffered=%d/failAt=%d/error=%v", buffered, failAt, failure), func(t *testing.T) {
 					sink := &failingFrameSink{failAt: failAt, err: failure}
-					stream := NewStreamWriter(sink, LevelZero, LZ4)
+					stream := NewStreamWriter(sink, LevelZero, LZ4, 0)
 					n, err := stream.Write(make([]byte, buffered))
 					require.NoError(t, err)
 					require.Equal(t, buffered, n)
@@ -163,7 +163,7 @@ func TestStreamWriterFrameSize(t *testing.T) {
 		for _, method := range []Method{None, LZ4, ZSTD} {
 			t.Run(fmt.Sprintf("%s/%d", method, size), func(t *testing.T) {
 				var dst bytes.Buffer
-				stream := NewStreamWriterSize(&dst, LevelZero, method, size)
+				stream := NewStreamWriter(&dst, LevelZero, method, size)
 				for _, part := range [][]byte{data[:17], data[17:]} {
 					n, err := stream.Write(part)
 					require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestStreamWriterFrameSize(t *testing.T) {
 
 func TestStreamWriterInvalidFrameSize(t *testing.T) {
 	for _, size := range []int{-1, MaxFrameSize + 1} {
-		stream := NewStreamWriterSize(io.Discard, LevelZero, LZ4, size)
+		stream := NewStreamWriter(io.Discard, LevelZero, LZ4, size)
 		for range 2 {
 			n, err := stream.Write([]byte("data"))
 			require.Zero(t, n)
@@ -212,7 +212,7 @@ func TestStreamWriterInvalidFrameSize(t *testing.T) {
 		}
 	}
 	for _, size := range []int{0, 1, MaxFrameSize} {
-		stream := NewStreamWriterSize(io.Discard, LevelZero, LZ4, size)
+		stream := NewStreamWriter(io.Discard, LevelZero, LZ4, size)
 		require.NoError(t, stream.Flush())
 	}
 }

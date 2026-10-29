@@ -139,12 +139,6 @@ func (c *Client) sendQuery(ctx context.Context, q Query) error {
 }
 
 // Query to ClickHouse.
-//
-// OnPreparedInput supplies independently encoded blocks, e.g. from a bounded
-// producer queue. Mutually exclusive with Input and OnInput. Return nil,
-// io.EOF to finish; returning a block with an error is not supported. Each
-// block is fully sent before the next call. A partially sent query is never
-// retried automatically. See Client.NewBlockEncoder.
 type Query struct {
 	// Body of query, like "SELECT 1".
 	Body string
@@ -163,6 +157,11 @@ type Query struct {
 	// but query will fail if Input is set but has zero rows.
 	OnInput func(ctx context.Context) error
 
+	// OnPreparedInput supplies independently encoded blocks, e.g. from a bounded
+	// producer queue. Mutually exclusive with Input and OnInput. Return nil,
+	// io.EOF to finish; returning a block with an error is not supported. Each
+	// block is fully sent before the next call. A partially sent query is never
+	// retried automatically. See Client.NewBlockEncoder.
 	OnPreparedInput func(ctx context.Context) (*PreparedBlock, error)
 
 	// Result columns for SELECT operations.
@@ -316,20 +315,12 @@ func (c *Client) encodeDataHeader(tableName string) {
 func (c *Client) encodeBlock(ctx context.Context, tableName string, input []proto.InputColumn) error {
 	c.encodeDataHeader(tableName)
 
-	b := proto.Block{
-		Columns: len(input),
-	}
 	if len(input) > 0 {
 		c.metricsInc(ctx, queryMetricsDelta{BlocksSent: 1})
-		b.Rows = input[0].Data.Rows()
-		b.Info = proto.BlockInfo{
-			// TODO(ernado): investigate and document
-			BucketNum: -1,
-		}
 	}
 
 	if c.compression == proto.CompressionDisabled {
-		if err := b.WriteBlock(c.writer, c.protocolVersion, input); err != nil {
+		if err := inputBlock(input).WriteBlock(c.writer, c.protocolVersion, input); err != nil {
 			return err
 		}
 	} else {
